@@ -19,18 +19,14 @@ module.exports = function (Promise){
 		resolve([]);
 	});
 	
-	
-	Stream.prototype.notEmpty = function(){
-		var self = this;
-		return new Stream(function(r){
-			self.then(function(rstream){
-				if (rstream.length === 0) {
-					var e = Error('Stream is empty');
-					e.code = "EMPTYSTREAM";
-					throw e;
-				}
-				resolve(rstream[0], rstream[1]);
-			})
+	Stream.prototype.notEmpty = function(resolve, reject){
+		this.then(function(rstream){
+			if (rstream.length === 0) {
+				var e = Error('Stream is empty');
+				e.code = "EMPTYSTREAM";
+				reject(e);
+			}
+			resolve(rstream[0], rstream[1]);
 		});
 	};
 	
@@ -45,16 +41,29 @@ module.exports = function (Promise){
 			.all(x.concat([y]));
 		}, [] )
 	}
+	
+	
+	Stream.pair = function (s, t) {
+		return new Stream(function (resolve){
+			Promise.all([s, t])
+			.spread(function(x, y){
+				if (x[0] == undefined || y[0] == undefined) resolve([]);
+				resolve([[x[0],y[0]], Stream.pair(x[1],y[1])])
+			});
+		});
+	}
+	
 	Stream.prototype.map = function (fn) {
 		var self = this;
-		return self.notEmpty().caught(function(e){
-			if (e.code === "EMPTYSTREAM") return [];
-			else throw e;
+		return new Stream(function (resolve, reject){
+			return self.notEmpty(function(x,xs){
+				var fx = fn(x), fxs = xs.map(fn);
+				resolve( [fx, fxs || Stream.empty] );
+			}, function(e){
+				if (e.code === "EMPTYSTREAM") return [];
+				reject(e);
+			});
 		})
-		.sThen(function(x,xs){
-			var fx = fn(x),	fxs = xs.map(fn);
-			resolve([fx, fxs]);
-		});
 	};
 	
 	Stream.prototype.reduce = function (fn, z) {
@@ -77,16 +86,6 @@ module.exports = function (Promise){
 			resolve([x, self]);
 		});
 	};
-	
-	
-	Stream.prototype.sThen = function(resolve){
-		var self = this;
-		return new Stream(function(r){
-			self.then(function(rstream){
-				resolve(rstream[0], rstream[1]);
-			})
-		})
-	}
 	
 	Stream.prototype.pop = function (fn) {
 		var self = this;
