@@ -41,7 +41,9 @@ var mappedStream = stream.map(fn);
 ```
 
 using the .then function will return a promise of an array, if you want to chain streams use
+```
     Stream.prototype.next(Function onResolved, Function ifEmpty, [Function onRejected]) -> Stream
+```
 here
     onResolved(Dynamic x, Stream xs) -> Stream | [Dynamic, Stream]
     ifEmpty() -> Stream
