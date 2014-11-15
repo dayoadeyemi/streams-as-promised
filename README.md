@@ -52,10 +52,9 @@ here
 ```
 e.g.
 ```js
-var streamOfTypes = stream
-.next(function(x,xs){
+var streamOfTypes = stream.next(function(x,xs){
 	return [typeof x, xs];
 }, function(){
-	return z;
+  return z;
 });
 ```
