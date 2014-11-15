@@ -31,7 +31,7 @@ var stream = (new Stream()).read(readable);
 
 To write to a node writable stream:
 ```js
-var sameStreamForChaining =stream.write(writable);
+var sameStreamForChaining = stream.write(writable);
 ```
 
 
