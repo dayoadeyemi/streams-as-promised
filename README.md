@@ -1,9 +1,9 @@
 ## streams-as-promised
 
 Your streams are now promises in your favourite promise library, so you no longer have to choose between using streams and functional programming. An instance of a stream in this sense is either the empty Stream (a promise of an empty Array) or a promise of both a dynamic value and Stream.
-
+```haskell
     Stream :: EmptyStream | Promise [ Dynamic, Stream ]
-
+```
 ## Intro
 
     npm install streams-as-promised
