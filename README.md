@@ -55,6 +55,6 @@ e.g.
 var streamOfTypes = stream.next(function(x,xs){
 	return [typeof x, xs];
 }, function(){
-	return z;
+	return [];
 });
 ```
