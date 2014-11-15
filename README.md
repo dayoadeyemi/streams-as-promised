@@ -41,13 +41,15 @@ var mappedStream = stream.map(fn);
 ```
 
 using the .then function will return a promise of an array, if you want to chain streams use
-```
+```haskell
     Stream.prototype.next(Function onResolved, Function ifEmpty, [Function onRejected]) -> Stream
 ```
 here
+```haskell
     onResolved(Dynamic x, Stream xs) -> Stream | [Dynamic, Stream]
     ifEmpty() -> Stream
     onRejected(Dynamic reason) -> Stream
+```
 e.g.
 ```js
 var streamOfTypes = stream
