@@ -1,9 +1,43 @@
-module.exports = function (Promise){
+/**
+ * The MIT License (MIT)
+ * 
+ * Copyright (c) 2014 Ifedayo Adeyemi
+ * 
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:</p>
+ * 
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ * 
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ * 
+ */
+ "use strict";
+ module.exports = function (Promise){
+	var util = require('util');
+	var isArray = util.isArray;
+	var K = function (value){ 
+		return function (){
+			return value
+		}
+	}
+	//Promise.longStackTraces();
 	function Stream(resolve, reject, progress){
+		var array;
 		if (resolve === undefined) {
 			resolve = [];
 		}
-		if (Array.isArray(resolve)){
+		if (isArray(resolve)){
 			array = resolve;
 			resolve = function(r){
 				if (array.length === 0) return r([]);
@@ -11,37 +45,57 @@ module.exports = function (Promise){
 			}
 		}
 		Promise.call(this, resolve, reject, progress);
+		this._readingList = [];
+		this._listeners = [];
+		this._id = stremNo++;
+		stremNo=stremNo+1;
 	};
-	
+	var stremNo = 0;
 	Stream.prototype = Object.create(Promise.prototype);
 	
-	Stream.empty = new Stream (function (resolve){
-		resolve([]);
-	});
 	
-	Stream.prototype.notEmpty = function(resolve, reject){
-		this.then(function(rstream){
-			if (rstream.length === 0) {
-				var e = Error('Stream is empty');
-				e.code = "EMPTYSTREAM";
-				reject(e);
-			}
-			resolve(rstream[0], rstream[1]);
+	Stream.prototype.next = function(resolve, onEmpty, reject){
+		var self = this;
+		return new Stream(function(ret){
+			ret(self.then(function(x_xs){
+				if (!isArray(x_xs)) throw TypeError(self + " is not a Stream, it does not evaluate to an array");
+				else if (x_xs.length === 0 ) {
+					if (typeof onEmpty === "function" ) return onEmpty();
+					else throw Error ("No handler given for the empty stream");
+				}
+				else if (x_xs[1] && typeof x_xs[1].then !== 'function') throw TypeError(self + " is not a Stream, the second value is not a promise");
+				else return resolve(x_xs[0], x_xs[1]);
+			}));
+		})
+	};
+
+	Stream.prototype.consume = function (fn) {
+		this.next(function(x,xs){
+			fn(x);
+			return xs.consume(fn);
+		}, function(){
+			return ;
 		});
 	};
 	
-	Stream.prototype.toArray = function (fn) {
-		return this.notEmpty()
-		.caught(function(e){
-			if (e.code === "EMPTYSTREAM") return [];
-			else throw e;
-		})
-		.reduce(function(x,y){
-			return Promise
-			.all(x.concat([y]));
-		}, [] )
-	}
-	
+	Stream.prototype.take = function (n, fn) {
+		var self = this;
+		if (typeof fn !== 'function'){
+			return new Promise (function(resolve){
+				self.take(n, resolve)
+			});
+		}
+		if (n === 0) {
+			fn([]);
+			return this;
+		}
+		if (typeof n !== "number" || n < 0) throw TypeError('.take expects a non negative integer but got: ' + n)
+		return this.next(function(x, xs){
+			return xs.take(n-1, function(XS){
+				return fn(XS.concat([x]));
+			});
+		}, K(this));
+	};
 	
 	Stream.pair = function (s, t) {
 		return new Stream(function (resolve){
@@ -51,32 +105,36 @@ module.exports = function (Promise){
 				resolve([[x[0],y[0]], Stream.pair(x[1],y[1])])
 			});
 		});
-	}
+	};
 	
 	Stream.prototype.map = function (fn) {
-		var self = this;
-		return new Stream(function (resolve, reject){
-			return self.notEmpty(function(x,xs){
-				var fx = fn(x), fxs = xs.map(fn);
-				resolve( [fx, fxs || Stream.empty] );
-			}, function(e){
-				if (e.code === "EMPTYSTREAM") return [];
-				reject(e);
-			});
+		return this.next(function(x,xs){
+			return [fn(x), xs.map(fn)];
+		}, function(){
+			return [];
+		});
+	};
+	
+	Stream.prototype.filter = function (fn) {
+		return this.next(function(x,xs){
+			return fn(x) ? [x, xs] : xs.filter(fn);
+		}, function(){
+			return [];
+		});
+	};
+	
+	Stream.prototype.tap = function (fn) {
+		return this.map(function(x){
+			fn(x);
+			return x;
 		})
 	};
 	
 	Stream.prototype.reduce = function (fn, z) {
-		var self = this;
-		if (z === undefined){
-			return self.then(function(){
-				
-			});
-		}
-		return new Stream(function(resolve){
-			self.then(function(rstream){
-				resolve([fn(z,rstream[0]), rstream[1]]);
-			})
+		this.next(function(x,xs){
+			return xs.reduce(fn, fn(z,x));
+		}, function(){
+			return z;
 		});
 	}
 
@@ -89,59 +147,76 @@ module.exports = function (Promise){
 	
 	Stream.prototype.pop = function (fn) {
 		var self = this;
-		return new Stream(function(resolve){
-			self.then(function(rstream){
-				fn(stream[0]);
-				return stream[1];
-			});
+		return this.next(function(x, xs){
+			fn(x);
+			return xs
+		}, function (){
+			throw Error("an attempt was made to pop a value from an empty stream");
 		});
 	};
-	
-	Stream.prototype.slice = function () {
-		var self = this;
-		return new Stream(function(resolve){
-			self.then(function(rstream){
-				resolve([rstream[0], Stream.empty])
-			});
-		});
-	};
-	
+		
 	Stream.prototype.write = function(writable){
-		function _write(stream){
-			stream.then(function(rstream){
-				if (rstream[0] === undefined) writable.end();
-				//console.log(rstream[0])
-				writable.write(new Buffer(rstream[0], 'utf8'), function(){
-					_write(rstream[1]);
+		function writeTo(stream){
+			stream.next(function(x,xs){
+				writable.write(new Buffer(x, 'utf8'), function(){
+					writeTo(rstream[1]);
 				});
+			}, function (e){
+				if (e.code === "EMPTYSTREAM") writable.end();
 			});
 		};
-		_write(this);
+		writeTo(this);
+		return this;
 	}
+	
+	Stream.prototype.stopReading = function Stream$stopReading(readable){
+		var i = this._readingList.indexOf(readable);
+		if (i === -1) {
+			console.log(this._readingList)
+			throw new Error('The stream is not reading from the given readable');
+		}
+		this._listeners[i]();
+		this._readingList.splice(i,1);
+		this._listeners.splice(i,1);
+		if (typeof readable.unref === 'function' &&
+			readable.listeners('data' === 0) &&
+			readable.listeners('end' === 0) &&
+			readable.listeners('error' === 0)) readable.unref();
+		return this;
+	};
+	
 
-	Stream.read = function(readable){
-		return new Stream(function(resolve, reject){
+	Stream.prototype.read = function(readable){
+		var self = this;
+		var s = new Stream(function(resolve, reject){
+			var readerNo;
 			function onData(data){
 				removeListeners();
-				resolve([data, Stream.read(readable)])
+				resolve([data, self.read(readable)])
 			}
 			function onEnd(){
+				console.log("end");
 				removeListeners();
-				resolve([])
+				resolve(self)
 			}
 			function onError(e){
 				removeListeners();
-				reject(e);
+				throw e;
 			}
 			function removeListeners(){
+				self._listeners.splice(readerNo,1);
 				readable.removeListener('data', onData);
 				readable.removeListener('end', onEnd);
 				readable.removeListener('error', onError);
 			}
-			readable.on('data', onData)
-			readable.on('end', onEnd);
-			readable.on('error', onError);
+			readerNo = self._listeners.push(onEnd) - 1;
+			self._readingList.push(readable);
+			readable
+			.once('data', onData)
+			.once('end', onEnd)
+			.once('error', onError);
 		});
+		return s;
 	};
 	
 	return Stream;
