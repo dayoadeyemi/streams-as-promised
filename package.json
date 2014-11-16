@@ -1,6 +1,6 @@
 {
   "name": "streams-as-promised",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "Your streams are now promises in your favourite promise library.",
   "main": "index.js",
   "scripts": {
