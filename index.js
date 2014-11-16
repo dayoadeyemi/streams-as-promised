@@ -195,7 +195,6 @@
 				resolve([data, self.read(readable)])
 			}
 			function onEnd(){
-				console.log("end");
 				removeListeners();
 				resolve(self)
 			}
