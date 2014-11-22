@@ -28,19 +28,19 @@ var isArray = util.isArray;
 var isNumber = function (x) { return typeof x === 'number'; };
 var debug = false ? console.log : function (){};
 var LazyPromise = require('./lazify.js');
-var Promise = require('bluebird');
+var Promise = require('bluebird')
 
-function K(value){ 
+var K = function (value){ 
 	return function (){
 		return value;
 	}
 }
-
-function I(value){ 
+var I = function (value){ 
 	return value;
 }
 
-function replace(list, before, after) {
+
+var replace = function replace(list, before, after) {
     var newList = list.slice(0);
     var index = list.indexOf(before);
     var len = list.length;
@@ -72,8 +72,7 @@ function Stream(resolver){
 		}
 	}
 	LazyPromise.call(this, resolver.bind(this));
-}
-
+};
 Stream.prototype = Object.create(LazyPromise.prototype);
 
 Stream.prototype.next = function(resolve, onEmpty, reject){
@@ -183,7 +182,8 @@ Stream.list = function () {
 Stream.pair = function (streams) {
   function pluck(list, item){ list.map(function(){ return list[item]; }); }
 	return new Stream(function (resolve){
-		Promise.all(streams).then(function(resolvedStreams){
+		Promise.all(streams)
+		.then(function(resolvedStreams){
 			resolve([resolvedStreams(0), resolvedStreams(1)])
 		});
 	});
@@ -215,7 +215,9 @@ Stream.mix = function (streams) {
 Stream.prototype.consume = function (fn) {
 	return this.next(function(x,xs){
 		fn(x);
-		return xs.consume(fn).activate();
+		return xs
+      .consume(fn)
+      .activate();
 	}, function(){
 		return this;
 	});

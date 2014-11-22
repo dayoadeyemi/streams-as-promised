@@ -1,6 +1,6 @@
 {
   "name": "streams-as-promised",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "description": "Your streams are now promises in your favourite promise library.",
   "main": "index.js",
   "scripts": {
@@ -9,10 +9,11 @@
   "keywords": [
     "streams",
     "promises",
-    "async"
+    "async",
+    "lazy"
   ],
   "author": "dayoadeyemi",
-  "license": "ISC",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/dayoadeyemi/streams-as-promised.git"
